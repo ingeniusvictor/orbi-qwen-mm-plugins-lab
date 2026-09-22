@@ -183,7 +183,8 @@ It verifies:
 - normalized successful response envelope,
 - provider substitution,
 - no direct Qwen imports,
-- expected contract interfaces.
+- expected contract interfaces,
+- direct smoke execution bootstraps the repository `src/` path without relying on ambient `PYTHONPATH`.
 
 Deterministic smoke:
 
@@ -229,6 +230,12 @@ git branch --show-current
 git rev-parse HEAD
 ```
 
-QB-08 becomes certifiable only after both the test suite and deterministic smoke pass with a clean tree.
+Expected reference-suite result:
+
+```text
+13 passed
+```
+
+QB-08 becomes certifiable only after both the 13-test reference suite and deterministic smoke pass with a clean tree.
 
 **QB-08 status: IMPLEMENTATION CANDIDATE — awaiting local validation.**
