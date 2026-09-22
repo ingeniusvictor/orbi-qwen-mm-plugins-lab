@@ -997,8 +997,11 @@ window.addEventListener('resize', function(){
         wb = self._world_xz(inst_b, cam_b)
         dx, dz = wb[0] - wa[0], wb[1] - wa[1]
         dist = math.hypot(dx, dz)
-        # World forward is -Z; +X is right.
-        direction = self._dir8(math.degrees(math.atan2(dx, -dz)))
+        # World forward is -Z; +X is right. Keep direction semantically aligned with
+        # is_moving: sub-threshold displacement is stationary, not an arbitrary atan2(0, 0)
+        # sector such as "forward" or "right".
+        is_moving = bool(dist > 0.3)
+        direction = self._dir8(math.degrees(math.atan2(dx, -dz))) if is_moving else "stationary"
         ca = [float(v) for v in (cam_a.get("pos_bev") or (0.0, 0.0))]
         cb = [float(v) for v in (cam_b.get("pos_bev") or (0.0, 0.0))]
         cam_moved = math.hypot(cb[0] - ca[0], cb[1] - ca[1])
@@ -1010,7 +1013,7 @@ window.addEventListener('resize', function(){
             "displacement_m": round(float(dist), 4),
             "move_vec": [round(float(dx), 4), round(float(dz), 4)],
             "direction": direction,
-            "is_moving": bool(dist > 0.3),
+            "is_moving": is_moving,
             "camera_moved_m": round(float(cam_moved), 4),
             "frames": [frame_a, frame_b],
         }
