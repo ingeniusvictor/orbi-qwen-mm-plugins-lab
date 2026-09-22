@@ -54,6 +54,7 @@ class OrbiResponse:
     provenance: dict[str, Any]
     policy: dict[str, Any]
     error: OrbiError | None = None
+    audit: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         out = {
@@ -68,4 +69,6 @@ class OrbiResponse:
         }
         if self.error is not None:
             out["error"] = self.error.to_dict()
+        if self.audit is not None:
+            out["audit"] = dict(self.audit)
         return out
