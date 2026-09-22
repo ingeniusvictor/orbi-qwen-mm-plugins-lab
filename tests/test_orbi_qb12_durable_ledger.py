@@ -124,7 +124,7 @@ def test_pending_unknown_outcome_survives_restart(tmp_path):
     assert pending[0].sequence == token.sequence
     assert pending[0].request_id == "pending-id"
     assert pending[0].outcome == "pending"
-    assert pending[0].provider_called is False
+    assert pending[0].provider_called is None
     assert pending[0].replay_reserved is True
 
 
