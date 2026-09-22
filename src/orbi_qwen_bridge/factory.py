@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from orbi_compat import OrbiRuntime, PolicyEngine
+from orbi_compat import OrbiRuntime, PolicyEngine, SQLiteReplayLedger
 from orbi_compat.adapters import (
     QwenBlenderReadOnlyAdapter,
     QwenCoreMediaAdapter,
@@ -41,14 +41,25 @@ def build_readonly_qwen_runtime(
     )
 
 
-def build_governed_blender_runtime(contract_path: str | Path) -> OrbiRuntime:
-    """Build an ORBI runtime that enables only approved QB-10 Blender recipes.
+def build_governed_blender_runtime(
+    contract_path: str | Path,
+    *,
+    durable_ledger_path: str | Path | None = None,
+) -> OrbiRuntime:
+    """Build an ORBI runtime that enables only approved governed Blender recipes.
 
-    The public operation remains `orbi.scene3d.v1/execute_recipe`; arbitrary Python is never
-    accepted from the caller. MHS is not included and remains read-only in its separate factory.
+    When `durable_ledger_path` is provided, R2 replay reservations and audit receipts survive
+    runtime/process restart through the QB-12 SQLite ledger. Without it, the certified QB-11
+    session-local ledger remains the default.
     """
+    ledger = (
+        SQLiteReplayLedger(durable_ledger_path)
+        if durable_ledger_path is not None
+        else None
+    )
     return OrbiRuntime(
         PolicyEngine.from_file(contract_path),
         [QwenBlenderGovernedAdapter(QwenRegistryInvoker("blender"))],
         sandboxed_execution_enabled=True,
+        replay_ledger=ledger,
     )
