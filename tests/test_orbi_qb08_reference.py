@@ -228,3 +228,20 @@ def test_contract_still_declares_expected_reference_interfaces():
         "orbi.hardware.v1",
         "orbi.scene3d.v1",
     }.issubset(interfaces)
+
+
+def test_qb08_smoke_script_bootstraps_src_path():
+    source = (ROOT / "scripts/orbi/qb08_reference_smoke.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    assignments = {
+        node.targets[0].id
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+    }
+
+    assert "ROOT" in assignments
+    assert "SRC" in assignments
+    assert "sys.path" in source
