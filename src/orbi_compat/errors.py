@@ -16,6 +16,14 @@ class UnsupportedOperation(OrbiCompatError):
     code = "UNSUPPORTED_OPERATION"
 
 
+class ReplayDenied(OrbiCompatError):
+    code = "REPLAY_DENIED"
+
+
+class RequestIdConflict(OrbiCompatError):
+    code = "REQUEST_ID_CONFLICT"
+
+
 class ProviderFailure(OrbiCompatError):
     code = "PROVIDER_FAILURE"
 
