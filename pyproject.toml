@@ -136,7 +136,7 @@ shared = "src/shared"
 
 [tool.setuptools.packages.find]
 where = ["src/capabilities/video-spatio", "src/capabilities/core", "src/capabilities/api", "src/capabilities/search", "src/capabilities/video-memory", "src/capabilities/omni-memory", "src/capabilities/omni-video2note", "src/capabilities/video-edit", "src/capabilities/omni-chatcut", "src/capabilities/example", "src/capabilities/blender", "src/capabilities/freecad", "src/capabilities/omni-skill-creator", "src/capabilities/mhs", "src"]
-include = ["qwen_mm_plugins*", "shared*", "orbi_compat*"]
+include = ["qwen_mm_plugins*", "shared*", "orbi_compat*", "orbi_qwen_bridge*"]
 
 # The vendored live-session addons ship as package DATA (not importable subpackages — no __init__ on
 # vendor/): --launch-app resolves them on disk and hands them to Blender/FreeCAD, which load them.
