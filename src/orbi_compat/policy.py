@@ -63,10 +63,16 @@ class PolicyEngine:
         *,
         external_provider_enabled: bool = False,
         certified_adapter: bool = False,
+        sandboxed_execution_enabled: bool = False,
     ) -> PolicyDecision:
         spec = self.operation_spec(request.interface, request.operation)
         risk = RiskClass(spec["risk_class"])
         confirmation_required = bool(spec.get("confirmation_required", False))
+
+        if risk is RiskClass.R2_EXECUTE_SANDBOXED and not sandboxed_execution_enabled:
+            raise PolicyDenied(
+                f"{request.interface}/{request.operation} sandboxed execution is disabled"
+            )
 
         if risk is RiskClass.R3_ACTUATE_CONFIRMED:
             if not certified_adapter:
