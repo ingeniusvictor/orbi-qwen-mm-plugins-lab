@@ -133,6 +133,33 @@ class ReplayLedger:
         self._receipts.append(receipt)
         return receipt
 
+    def record_denial(
+        self,
+        request: OrbiRequest,
+        provider: ProviderInfo,
+        risk_class: str,
+        *,
+        error_code: str,
+    ) -> ExecutionReceipt:
+        self._sequence += 1
+        receipt = ExecutionReceipt(
+            schema="orbi.execution-audit/v1",
+            sequence=self._sequence,
+            request_id=request.request_id,
+            request_fingerprint=request_fingerprint(request),
+            interface=request.interface,
+            operation=request.operation,
+            risk_class=risk_class,
+            outcome="replay-denied",
+            provider_called=False,
+            provider=provider.to_dict(),
+            replay_reserved=False,
+            retry_semantics="new-request-id-required",
+            error_code=error_code,
+        )
+        self._receipts.append(receipt)
+        return receipt
+
     def receipts(self) -> tuple[ExecutionReceipt, ...]:
         return tuple(self._receipts)
 
