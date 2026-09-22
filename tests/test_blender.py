@@ -254,3 +254,22 @@ def test_launch_app_status_goes_to_stderr_not_stdout(capsys):
     assert rc == 0
     assert captured.out == ""
     assert "already listening" in captured.err
+
+
+def test_launch_detects_missing_shared_libraries(monkeypatch):
+    """Linux auto-downloaded Blender should fail fast when host ELF libs are unresolved."""
+    from types import SimpleNamespace
+
+    from qwen_mm_plugins_blender import _launch
+
+    monkeypatch.setattr(_launch.sys, "platform", "linux")
+
+    def run(*_args, **_kwargs):
+        return SimpleNamespace(
+            stdout="\tlibSM.so.6 => not found\n\tlibICE.so.6 => /lib/libICE.so.6 (0x0000)\n",
+            stderr="",
+            returncode=0,
+        )
+
+    monkeypatch.setattr("subprocess.run", run)
+    assert _launch._missing_shared_libraries("/tmp/blender") == ["libSM.so.6"]
