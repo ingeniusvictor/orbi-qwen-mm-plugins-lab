@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS execution_audit (
     operation TEXT NOT NULL,
     risk_class TEXT NOT NULL,
     outcome TEXT NOT NULL,
-    provider_called INTEGER NOT NULL,
+    provider_called INTEGER,
     provider_family TEXT,
     provider_capability TEXT,
     provider_version TEXT,
@@ -123,7 +123,7 @@ class SQLiteReplayLedger:
                 INSERT INTO execution_audit(
                     request_id, request_fingerprint, interface, operation, risk_class,
                     outcome, provider_called, replay_reserved, retry_semantics
-                ) VALUES (?, ?, ?, ?, ?, 'pending', 0, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, 'pending', NULL, ?, ?)
                 """,
                 (
                     request.request_id,
@@ -303,7 +303,9 @@ class SQLiteReplayLedger:
             operation=row["operation"],
             risk_class=row["risk_class"],
             outcome=row["outcome"],
-            provider_called=bool(row["provider_called"]),
+            provider_called=(
+                None if row["provider_called"] is None else bool(row["provider_called"])
+            ),
             provider={
                 "family": row["provider_family"] or "",
                 "capability": row["provider_capability"] or "",
