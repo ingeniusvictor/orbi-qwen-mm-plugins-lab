@@ -4,6 +4,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
 from orbi_compat import OrbiRequest, OrbiRuntime, PolicyEngine
 from orbi_compat.adapters import (
@@ -12,7 +18,6 @@ from orbi_compat.adapters import (
     QwenMHSReadOnlyAdapter,
 )
 
-ROOT = Path(__file__).resolve().parents[2]
 CONTRACT = ROOT / "docs/orbi/qb07/orbi_compatibility_contract.v1.json"
 
 
