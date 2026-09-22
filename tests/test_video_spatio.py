@@ -236,6 +236,19 @@ def test_object_world_motion_reports_forward_along_negative_z(frames):
     assert result["move_vec"] == [0, -1]
 
 
+def test_object_world_motion_stationary_has_no_spurious_direction(frames):
+    from qwen_mm_plugins_video_spatio.tools import object_world_motion
+
+    scene = _build_scene(
+        frames,
+        [[{"label": "chair", "bbox": [400, 400, 600, 600], "depth_m": 2}]] * 2,
+    )
+    result = json.loads(object_world_motion.handle({"scene": scene, "target": "chair"})[0]["text"])
+    assert result["displacement_m"] == 0.0
+    assert result["is_moving"] is False
+    assert result["direction"] == "stationary"
+
+
 @pytest.mark.parametrize(
     "positions,bearings,reliable",
     [
