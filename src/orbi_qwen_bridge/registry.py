@@ -11,12 +11,35 @@ import importlib
 from dataclasses import dataclass
 from typing import Any
 
+from orbi_compat.errors import ProviderFailure
+
 
 _CAPABILITY_PACKAGES = {
     "core": "qwen_mm_plugins_core",
     "mhs": "qwen_mm_plugins_mhs",
     "blender": "qwen_mm_plugins_blender",
 }
+
+
+def _tool_error_message(blocks: list[dict[str, Any]]) -> str | None:
+    """Recognize the error-as-text convention used by the selected Qwen handlers.
+
+    Qwen-MM-Plugins handlers predate this ORBI envelope and often return a single textual error
+    block instead of raising. At the ORBI provider boundary those must become normalized failures.
+    """
+    if len(blocks) != 1:
+        return None
+    block = blocks[0]
+    if block.get("type") != "text":
+        return None
+    message = str(block.get("text", "")).strip()
+    lowered = message.lower()
+    prefixes = (
+        "error:",
+        "error ",
+        "screenshot failed:",
+    )
+    return message if lowered.startswith(prefixes) else None
 
 
 def normalize_content_blocks(blocks: Any) -> list[dict[str, Any]]:
@@ -105,4 +128,8 @@ class QwenRegistryInvoker:
             raise TypeError("Qwen tool payload must be a dict")
 
         raw = handler(payload)
+        if not isinstance(raw, list):
+            raise TypeError("Qwen tool handler must return a list of content blocks")
+        if message := _tool_error_message(raw):
+            raise ProviderFailure(message)
         return normalize_content_blocks(raw)
