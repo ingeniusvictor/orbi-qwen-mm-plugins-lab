@@ -1,6 +1,6 @@
 # QB-03 — MHS Mock Hardware Validation
 
-Status: **PASS (runtime behavior validated; final local cleanup check pending)**
+Status: **PASS**
 
 ## Scope
 
@@ -287,11 +287,31 @@ Not authorized or validated by QB-03:
 
 Any future real-hardware adapter must begin read-only, declare real limits from vendor documentation, expose consequential writes with confirmation, and pass adapter conformance checks before actuation.
 
-## Standalone verifier note
+## Standalone adapter verifier
 
-The conversational runtime evidence captured here includes the complete MCP end-to-end behavior. The separate `qwen_mm_plugins_mhs.verify` console output was not included in the captured transcript, so this document does not claim an independently recorded verifier result.
+The bundled mock adapter was independently checked with the official read-only verifier:
 
-That does not alter the observed end-to-end safety behavior above, but a future real-hardware adapter must pass the standalone verifier before registration.
+```text
+python -m qwen_mm_plugins_mhs.verify http://127.0.0.1:18800
+```
+
+Observed result:
+
+```text
+PASS — 15 check(s), 0 warning(s)
+```
+
+The verifier confirmed:
+
+- 2 devices discovered,
+- camera metadata and 4 safety limits,
+- lamp metadata and 1 safety limit,
+- both devices healthy,
+- every readable capability returned valid blocks,
+- unknown-device handling returned HTTP 404,
+- no write or reset command was sent by the verifier.
+
+The verifier explicitly left actuation unexercised, as designed. Write/reset behavior was validated separately through the controlled MCP mock test recorded above.
 
 ## QB-03 certification
 
@@ -311,6 +331,24 @@ mock adapter
 simulated camera / lamp
 ```
 
-**QB-03 runtime result: PASS — MHS MOCK HARDWARE AND SAFETY GATES VALIDATED**
+**QB-03 result: PASS — MHS MOCK HARDWARE, ADAPTER CONFORMANCE, AND SAFETY GATES VALIDATED**
 
-Final local cleanup and Git integrity should be confirmed before merging this branch back into `integration/orbi-lab`.
+## Final cleanup and repository integrity
+
+After validation:
+
+- the mock adapter process was terminated,
+- temporary PID/log/registry files were removed,
+- `QWEN_MM_MHS_DEVICES` was unset,
+- the branch was synchronized from origin,
+- Git reported a clean working tree.
+
+Final local state before this certification update:
+
+```text
+branch: feature/qb-03-mhs-mock-validation
+HEAD: e65f272b2f14b48dafaada18cff226c60cc27950
+working tree: clean
+```
+
+QB-03 is therefore complete and eligible for integration into `integration/orbi-lab`.
