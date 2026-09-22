@@ -1,0 +1,360 @@
+{
+  "contract_version": "orbi.compatibility/v1",
+  "phase": "QB-07",
+  "status": "design-candidate",
+  "upstream": {
+    "repository": "QwenLM/Qwen-MM-Plugins",
+    "frozen_upstream_commit": "7f7ca380f2a21c3bea7239c132213e14c1c9abaf",
+    "orbi_parent_certification": "60cd9d40d2ecfaacf9343fa038773d63693d3e79",
+    "distribution_version": "1.1.9"
+  },
+  "principles": {
+    "orbi_owns_public_contracts": true,
+    "direct_upstream_imports_outside_adapters": false,
+    "local_first": true,
+    "provider_swappable": true,
+    "production_credentials_in_lab": false,
+    "production_hardware_writes_in_lab": false,
+    "provenance_required_for_generated_knowledge": true,
+    "explicit_policy_before_side_effects": true
+  },
+  "risk_classes": {
+    "R0_READ_LOCAL": "Read-only local inspection; no external provider and no side effect.",
+    "R1_TRANSFORM_LOCAL": "Local deterministic or bounded transformation; writes only to explicitly scoped artifacts.",
+    "R2_EXECUTE_SANDBOXED": "Executes code or controls an application inside an isolated/sandboxed boundary.",
+    "R3_ACTUATE_CONFIRMED": "Consequential hardware/device actuation; explicit confirmation and certified adapter required.",
+    "R4_EXTERNAL_PROVIDER": "Data leaves the local boundary for a configured external model/service."
+  },
+  "envelopes": {
+    "request_required": [
+      "interface",
+      "operation",
+      "request_id",
+      "input"
+    ],
+    "response_required": [
+      "ok",
+      "request_id",
+      "interface",
+      "operation",
+      "provider",
+      "data",
+      "provenance",
+      "policy"
+    ],
+    "error_required": [
+      "code",
+      "message",
+      "retryable"
+    ],
+    "provenance_required": [
+      "provider",
+      "provider_version",
+      "source_mode"
+    ],
+    "policy_required": [
+      "risk_class",
+      "decision",
+      "confirmation_required"
+    ]
+  },
+  "adapters": [
+    {
+      "id": "orbi.media.qwen-core.v1",
+      "interface": "orbi.media.v1",
+      "provider": {
+        "family": "qwen-mm-plugins",
+        "capability": "core",
+        "version": "1.1.0"
+      },
+      "default_mode": "local-read-only",
+      "operations": [
+        {
+          "name": "media_info",
+          "risk_class": "R0_READ_LOCAL"
+        },
+        {
+          "name": "read_image",
+          "risk_class": "R0_READ_LOCAL"
+        },
+        {
+          "name": "read_video",
+          "risk_class": "R0_READ_LOCAL"
+        },
+        {
+          "name": "visualize",
+          "risk_class": "R1_TRANSFORM_LOCAL"
+        }
+      ],
+      "boundaries": {
+        "cloud_required": false,
+        "raw_provider_payload_exposed": false,
+        "arbitrary_shell": false
+      }
+    },
+    {
+      "id": "orbi.hardware.qwen-mhs.v1",
+      "interface": "orbi.hardware.v1",
+      "provider": {
+        "family": "qwen-mm-plugins",
+        "capability": "mhs",
+        "version": "1.1.0"
+      },
+      "default_mode": "read-only",
+      "operations": [
+        {
+          "name": "discover",
+          "upstream": "mhs_discover",
+          "risk_class": "R0_READ_LOCAL"
+        },
+        {
+          "name": "meta",
+          "upstream": "mhs_meta_info",
+          "risk_class": "R0_READ_LOCAL"
+        },
+        {
+          "name": "read",
+          "upstream": "mhs_read",
+          "risk_class": "R0_READ_LOCAL"
+        },
+        {
+          "name": "health",
+          "upstream": "mhs_health_check",
+          "risk_class": "R0_READ_LOCAL"
+        },
+        {
+          "name": "write",
+          "upstream": "mhs_write",
+          "risk_class": "R3_ACTUATE_CONFIRMED",
+          "confirmation_required": true,
+          "certified_adapter_required": true
+        },
+        {
+          "name": "reset",
+          "upstream": "mhs_reset",
+          "risk_class": "R3_ACTUATE_CONFIRMED",
+          "confirmation_required": true,
+          "certified_adapter_required": true
+        }
+      ],
+      "boundaries": {
+        "mock_only_in_lab": true,
+        "real_hardware_default": "deny",
+        "hard_limits_overrideable": false,
+        "soft_limits_need_confirmation": true,
+        "consequential_writes_need_confirmation": true,
+        "prohibited_initial_targets": [
+          "pv_inverter",
+          "tracker",
+          "recloser",
+          "plc",
+          "bess",
+          "protection_relay",
+          "plant_controller"
+        ]
+      }
+    },
+    {
+      "id": "orbi.spatial.qwen-video-spatio.v1",
+      "interface": "orbi.spatial.v1",
+      "provider": {
+        "family": "qwen-mm-plugins",
+        "capability": "video-spatio",
+        "version": "1.0.0"
+      },
+      "default_mode": "local-geometry",
+      "operations": [
+        {
+          "name": "build_scene",
+          "risk_class": "R1_TRANSFORM_LOCAL"
+        },
+        {
+          "name": "camera_motion",
+          "risk_class": "R1_TRANSFORM_LOCAL"
+        },
+        {
+          "name": "triangulate",
+          "risk_class": "R1_TRANSFORM_LOCAL"
+        },
+        {
+          "name": "world_motion",
+          "upstream": "object_world_motion",
+          "risk_class": "R1_TRANSFORM_LOCAL"
+        },
+        {
+          "name": "visualize_bev",
+          "risk_class": "R1_TRANSFORM_LOCAL"
+        }
+      ],
+      "boundaries": {
+        "remote_vlm_default": "deny",
+        "calibrated_metrology": false,
+        "estimated_depth_must_be_labeled": true,
+        "stationary_direction_normalized": true
+      }
+    },
+    {
+      "id": "orbi.skill-authoring.qwen-omni-skill-creator.v1",
+      "interface": "orbi.skill-authoring.v1",
+      "provider": {
+        "family": "qwen-mm-plugins",
+        "capability": "omni-skill-creator",
+        "version": "1.0.1"
+      },
+      "default_mode": "local-authoring-validation",
+      "operations": [
+        {
+          "name": "inspect_media",
+          "risk_class": "R0_READ_LOCAL"
+        },
+        {
+          "name": "extract_assets",
+          "risk_class": "R1_TRANSFORM_LOCAL"
+        },
+        {
+          "name": "author_skill",
+          "risk_class": "R1_TRANSFORM_LOCAL"
+        },
+        {
+          "name": "validate_skill",
+          "risk_class": "R1_TRANSFORM_LOCAL"
+        },
+        {
+          "name": "semantic_perception",
+          "upstream": "read_native_av",
+          "risk_class": "R4_EXTERNAL_PROVIDER",
+          "default_enabled": false
+        }
+      ],
+      "boundaries": {
+        "generated_status_default": "source-grounded",
+        "execution_verified_requires_real_execution": true,
+        "generated_skill_can_grant_tools": false,
+        "provenance_sha256_required": true,
+        "remote_semantic_perception_default": "deny"
+      }
+    },
+    {
+      "id": "orbi.scene3d.qwen-blender.v1",
+      "interface": "orbi.scene3d.v1",
+      "provider": {
+        "family": "qwen-mm-plugins",
+        "capability": "blender",
+        "version": "1.1.0"
+      },
+      "default_mode": "local-controlled",
+      "operations": [
+        {
+          "name": "scene_info",
+          "upstream": "get_scene_info",
+          "risk_class": "R0_READ_LOCAL"
+        },
+        {
+          "name": "object_info",
+          "upstream": "get_object_info",
+          "risk_class": "R0_READ_LOCAL"
+        },
+        {
+          "name": "viewport_screenshot",
+          "upstream": "get_viewport_screenshot",
+          "risk_class": "R0_READ_LOCAL"
+        },
+        {
+          "name": "execute_recipe",
+          "upstream": "execute_blender_code",
+          "risk_class": "R2_EXECUTE_SANDBOXED",
+          "confirmation_required": false
+        }
+      ],
+      "boundaries": {
+        "arbitrary_python_public_api": false,
+        "approved_recipe_registry_required": true,
+        "filesystem_scope_required": true,
+        "network_default": "deny",
+        "external_asset_providers_default": "deny",
+        "wslg_force_x11_when_wayland_and_x11_present": true
+      }
+    }
+  ],
+  "project_bindings": [
+    {
+      "project": "LUMIA",
+      "interfaces": [
+        "orbi.media.v1",
+        "orbi.skill-authoring.v1",
+        "orbi.hardware.v1"
+      ],
+      "notes": "Hardware remains read-only until an ORBI adapter is independently certified."
+    },
+    {
+      "project": "ORBI Edge Mesh",
+      "interfaces": [
+        "orbi.hardware.v1",
+        "orbi.media.v1"
+      ],
+      "notes": "Node/device telemetry first; actuation disabled by default."
+    },
+    {
+      "project": "ORBI Creative Studio",
+      "interfaces": [
+        "orbi.media.v1",
+        "orbi.scene3d.v1",
+        "orbi.skill-authoring.v1"
+      ]
+    },
+    {
+      "project": "ORBI Dash",
+      "interfaces": [
+        "orbi.scene3d.v1",
+        "orbi.media.v1"
+      ]
+    },
+    {
+      "project": "ORBI PVMetrics",
+      "interfaces": [
+        "orbi.spatial.v1",
+        "orbi.skill-authoring.v1",
+        "orbi.media.v1"
+      ],
+      "notes": "No visual-depth value may be presented as calibrated plant metrology."
+    },
+    {
+      "project": "ORBI Academy",
+      "interfaces": [
+        "orbi.media.v1",
+        "orbi.skill-authoring.v1",
+        "orbi.scene3d.v1"
+      ]
+    },
+    {
+      "project": "ORBI Home Automation",
+      "interfaces": [
+        "orbi.hardware.v1"
+      ],
+      "notes": "Read-only discovery/telemetry first; writes require separate device certification."
+    }
+  ],
+  "implementation_rules": {
+    "adapter_namespace": "orbi_compat.adapters",
+    "contract_namespace": "orbi_compat.contracts",
+    "policy_namespace": "orbi_compat.policy",
+    "provider_selection": "configuration-not-callsite",
+    "qwen_specific_names_in_public_api": false,
+    "provider_errors_normalized": true,
+    "content_blocks_normalized": true,
+    "timeouts_bounded": true,
+    "retries_side_effect_aware": true
+  },
+  "next_gate": {
+    "phase": "QB-08",
+    "name": "ORBI Compatibility Reference Implementation",
+    "scope": [
+      "implement provider-neutral envelopes",
+      "implement read-only core adapter",
+      "implement read-only Blender adapter",
+      "implement MHS read-only adapter facade",
+      "unit-test policy denial paths",
+      "no production repository integration"
+    ]
+  }
+}
