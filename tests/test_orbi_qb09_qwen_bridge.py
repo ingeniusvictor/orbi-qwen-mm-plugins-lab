@@ -76,7 +76,7 @@ def test_readonly_factory_builds_core_runtime():
     assert "orbi.hardware.v1" not in runtime.adapters
 
 
-def test_live_bridge_missing_file_returns_normalized_provider_text():
+def test_live_bridge_missing_file_becomes_normalized_failure():
     runtime = build_readonly_qwen_runtime(CONTRACT, core=True, blender=False, mhs=False)
 
     response = runtime.execute(
@@ -88,12 +88,10 @@ def test_live_bridge_missing_file_returns_normalized_provider_text():
         )
     )
 
-    # Qwen handlers express ordinary tool errors as content blocks, so transport/runtime success
-    # remains true while the normalized provider text reports the tool-level error.
-    assert response.ok is True
-    assert isinstance(response.data, list)
-    assert response.data[0]["kind"] == "text"
-    assert "file not found" in response.data[0]["text"].lower()
+    assert response.ok is False
+    assert response.error is not None
+    assert response.error.code == "PROVIDER_FAILURE"
+    assert "file not found" in response.error.message.lower()
 
 
 def test_orbi_compat_still_contains_no_qwen_imports():
@@ -132,3 +130,18 @@ def test_qwen_provider_knowledge_is_confined_to_bridge_package():
     assert "qwen_mm_plugins_core" in bridge_text
     assert "qwen_mm_plugins_mhs" in bridge_text
     assert "qwen_mm_plugins_blender" in bridge_text
+
+
+def test_registry_normalizes_blender_style_text_error(monkeypatch):
+    bridge = QwenRegistryInvoker("blender")
+
+    monkeypatch.setattr(
+        bridge.package,
+        "get_handler",
+        lambda name: (lambda payload: [{"type": "text", "text": "Error getting scene info: offline"}]),
+    )
+
+    with pytest.raises(Exception) as exc:
+        bridge("get_scene_info", {})
+
+    assert "Error getting scene info: offline" in str(exc.value)
