@@ -46,6 +46,24 @@ def main() -> int:
         },
     }
 
+    print("=== QB-10 PREEXISTING OBJECT GUARD ===")
+    pre = request(
+        runtime,
+        "object_info",
+        "qb10-precheck",
+        {"object_name": NAME},
+    )
+    print(pre.to_dict())
+    if pre.ok:
+        raise AssertionError(
+            f"{NAME} already exists before QB-10 smoke; refusing to modify or delete it"
+        )
+    if pre.error is None or "Object not found" not in pre.error.message:
+        raise AssertionError(
+            f"Blender precheck failed for an unexpected reason: "
+            f"{pre.error.message if pre.error else 'unknown error'}"
+        )
+
     print("=== QB-10 DRY RUN ===")
     dry = request(
         runtime,
@@ -77,10 +95,10 @@ def main() -> int:
         print("\n=== QB-10 GOVERNED CREATE ===")
         create = request(runtime, "execute_recipe", "qb10-create", create_payload)
         print(create.to_dict())
+        created = create.ok
         assert create.ok is True
         assert create.data["execution"] == "executed"
         assert create.data["audit"]["provider_called"] is True
-        created = True
 
         print("\n=== QB-10 LIVE OBJECT VERIFY ===")
         obj = request(
@@ -97,25 +115,32 @@ def main() -> int:
 
     finally:
         print("\n=== QB-10 GOVERNED CLEANUP ===")
-        cleanup = request(
-            runtime,
-            "execute_recipe",
-            "qb10-delete",
-            {
-                "recipe_id": "orbi.blender.delete_object.v1",
-                "parameters": {"name": NAME},
-            },
-        )
-        print(cleanup.to_dict())
         if created:
+            cleanup = request(
+                runtime,
+                "execute_recipe",
+                "qb10-delete",
+                {
+                    "recipe_id": "orbi.blender.delete_object.v1",
+                    "parameters": {"name": NAME},
+                },
+            )
+            print(cleanup.to_dict())
             assert cleanup.ok is True
+        else:
+            print("Cleanup skipped: QB-10 did not create the object.")
 
-    print("\n=== QB-10 POST-CLEANUP SCENE VERIFY ===")
-    scene = request(runtime, "scene_info", "qb10-scene-final")
-    print(scene.to_dict())
-    assert scene.ok is True
-    assert scene.data and scene.data[0]["kind"] == "text"
-    assert NAME not in scene.data[0]["text"]
+    print("\n=== QB-10 POST-CLEANUP OBJECT VERIFY ===")
+    gone = request(
+        runtime,
+        "object_info",
+        "qb10-object-gone",
+        {"object_name": NAME},
+    )
+    print(gone.to_dict())
+    assert gone.ok is False
+    assert gone.error is not None
+    assert "Object not found" in gone.error.message
 
     print("\nQB-10 LIVE GOVERNED BLENDER EXECUTION: PASS")
     return 0
