@@ -78,7 +78,6 @@ class ReplayLedger:
 
     def begin(self, request: OrbiRequest, risk_class: str, *, dry_run: bool) -> ExecutionToken:
         fingerprint = request_fingerprint(request)
-        self._sequence += 1
 
         if not dry_run:
             previous = self._reserved.get(request.request_id)
@@ -92,6 +91,7 @@ class ReplayLedger:
                 )
             self._reserved[request.request_id] = fingerprint
 
+        self._sequence += 1
         return ExecutionToken(
             sequence=self._sequence,
             request_id=request.request_id,
