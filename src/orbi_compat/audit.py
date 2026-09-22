@@ -53,7 +53,7 @@ class ExecutionReceipt:
     operation: str
     risk_class: str
     outcome: str
-    provider_called: bool
+    provider_called: bool | None
     provider: dict[str, str]
     replay_reserved: bool
     retry_semantics: str
