@@ -88,12 +88,13 @@ def compile_create_cube(parameters: dict[str, Any]) -> CompiledRecipe:
         f"location = {tuple(location)!r}\n"
         "existing = bpy.data.objects.get(name)\n"
         "if existing is not None:\n"
-        "    bpy.data.objects.remove(existing, do_unlink=True)\n"
+        "    raise RuntimeError(f'object already exists: {name}')\n"
         "bpy.ops.mesh.primitive_cube_add(size=size, location=location)\n"
         "obj = bpy.context.active_object\n"
         "obj.name = name\n"
         "result = {'name': obj.name, 'type': obj.type, 'location': list(obj.location), "
         "'dimensions': list(obj.dimensions)}\n"
+        "print(result)\n"
     )
     return _compile("orbi.blender.create_cube.v1", "1.0.0", normalized, code)
 
@@ -115,6 +116,7 @@ def compile_delete_object(parameters: dict[str, Any]) -> CompiledRecipe:
         "if obj is not None:\n"
         "    bpy.data.objects.remove(obj, do_unlink=True)\n"
         "result = {'name': name, 'deleted': deleted}\n"
+        "print(result)\n"
     )
     return _compile("orbi.blender.delete_object.v1", "1.0.0", normalized, code)
 
