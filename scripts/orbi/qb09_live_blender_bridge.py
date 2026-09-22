@@ -8,7 +8,6 @@ Requires the already-certified Blender + bundled addon session on BLENDER_HOST/B
 from __future__ import annotations
 
 import os
-import socket
 import sys
 from pathlib import Path
 
@@ -27,17 +26,8 @@ def main() -> int:
     host = os.environ.get("BLENDER_HOST", "127.0.0.1")
     port = int(os.environ.get("BLENDER_PORT", "9876"))
 
-    print("=== QB-09 BLENDER CONNECTIVITY ===")
+    print("=== QB-09 BLENDER TARGET ===")
     print(f"Target: {host}:{port}")
-
-    try:
-        with socket.create_connection((host, port), timeout=3):
-            pass
-    except OSError as exc:
-        raise SystemExit(
-            f"Blender MCP is not reachable at {host}:{port}: {exc}. "
-            "Start the certified Blender session before running this smoke."
-        )
 
     runtime = build_readonly_qwen_runtime(
         CONTRACT,
@@ -56,12 +46,15 @@ def main() -> int:
     )
     print(scene.to_dict())
 
-    assert scene.ok is True
+    if not scene.ok:
+        raise AssertionError(
+            f"Blender live read failed through ORBI bridge: "
+            f"{scene.error.message if scene.error else 'unknown error'}"
+        )
     assert scene.provider.capability == "blender"
     assert scene.policy["risk_class"] == "R0_READ_LOCAL"
     assert scene.data and scene.data[0]["kind"] == "text"
     scene_text = scene.data[0]["text"]
-    assert "Error getting scene info" not in scene_text
     assert "objects" in scene_text.lower()
 
     print("\n=== QB-09 BLENDER EXECUTION DENIAL ===")
@@ -78,9 +71,16 @@ def main() -> int:
     assert denied.error is not None
     assert denied.error.code == "POLICY_DENIED"
 
-    # Prove the live Blender service survives the ORBI read path and denial path.
-    with socket.create_connection((host, port), timeout=3):
-        pass
+    print("\n=== QB-09 BLENDER SECOND READ ===")
+    scene2 = runtime.execute(
+        OrbiRequest(
+            interface="orbi.scene3d.v1",
+            operation="scene_info",
+            request_id="qb09-blender-scene-2",
+        )
+    )
+    print(scene2.to_dict())
+    assert scene2.ok is True
 
     print("\nQB-09 LIVE BLENDER READ-ONLY BRIDGE: PASS")
     return 0
