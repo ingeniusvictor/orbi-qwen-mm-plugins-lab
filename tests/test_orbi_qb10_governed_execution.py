@@ -294,3 +294,13 @@ def test_read_operation_remains_available_in_governed_adapter():
 
     assert response.ok is True
     assert invoker.calls == [("get_scene_info", {})]
+
+
+def test_governed_blender_runtime_contains_no_hardware_adapter():
+    from orbi_qwen_bridge.factory import build_governed_blender_runtime
+
+    runtime = build_governed_blender_runtime(CONTRACT)
+
+    assert set(runtime.adapters) == {"orbi.scene3d.v1"}
+    assert "orbi.hardware.v1" not in runtime.adapters
+    assert runtime.sandboxed_execution_enabled is True
