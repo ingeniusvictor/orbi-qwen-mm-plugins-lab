@@ -42,6 +42,39 @@ _BLENDER_SERIES = "4.2"
 _BLENDER_LINUX_X64_SHA256 = "bea0eb3146be13eae6225409a117b215184f41b7f79e799f97cb3abb8f6dc404"
 
 
+def _missing_shared_libraries(binary: str) -> list[str]:
+    """Return unresolved ELF shared-library names for a Linux Blender binary.
+
+    The official Blender tarball is relocatable but still relies on a small set of
+    host libraries. Detect them before launch so a missing library fails fast with
+    an actionable message instead of looking like a 90-second MCP-port timeout.
+    """
+    if sys.platform != "linux":
+        return []
+
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["ldd", binary],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+
+    missing: list[str] = []
+    for line in (proc.stdout or "").splitlines():
+        if "=> not found" not in line:
+            continue
+        name = line.split("=>", 1)[0].strip()
+        if name:
+            missing.append(name)
+    return sorted(set(missing))
+
+
 def _blender_download_url() -> str | None:
     import platform
 
@@ -141,6 +174,18 @@ def launch_app(argv: list[str]) -> int:
             "blender not found — install it, then retry (see --check-system).\n"
             "  apt install blender  |  brew install --cask blender\n"
             "  (auto-download covers Linux-x86_64; QWEN_MM_NO_AUTO_INSTALL disables it)",
+            file=sys.stderr,
+        )
+        return 3
+
+    missing_libs = _missing_shared_libraries(binary)
+    if missing_libs:
+        joined = ", ".join(missing_libs)
+        print(
+            "Blender cannot start because required host shared libraries are missing: "
+            f"{joined}.\n"
+            "  Install the corresponding OS packages, then retry. On Debian/Ubuntu, "
+            "libSM.so.6 is provided by package `libsm6`.",
             file=sys.stderr,
         )
         return 3
