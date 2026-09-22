@@ -17,11 +17,13 @@ class OrbiRuntime:
         *,
         external_provider_enabled: bool = False,
         certified_adapters: set[str] | None = None,
+        sandboxed_execution_enabled: bool = False,
     ):
         self.policy = policy
         self.adapters = {adapter.interface: adapter for adapter in adapters}
         self.external_provider_enabled = external_provider_enabled
         self.certified_adapters = set(certified_adapters or ())
+        self.sandboxed_execution_enabled = sandboxed_execution_enabled
 
     def _adapter_for(self, interface: str):
         try:
@@ -38,6 +40,7 @@ class OrbiRuntime:
                 request,
                 external_provider_enabled=self.external_provider_enabled,
                 certified_adapter=request.interface in self.certified_adapters,
+                sandboxed_execution_enabled=self.sandboxed_execution_enabled,
             )
             data = adapter.invoke(request.operation, request.input)
             return OrbiResponse(
