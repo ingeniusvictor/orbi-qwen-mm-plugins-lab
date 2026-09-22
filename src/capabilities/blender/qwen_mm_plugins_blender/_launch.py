@@ -31,6 +31,28 @@ def _binary_candidates() -> list[str]:
     return candidates
 
 
+def _prepare_gui_env(env: dict[str, str]) -> tuple[dict[str, str], bool]:
+    """Return the child environment for a real-display launch.
+
+    Blender 4.2.x may prefer Wayland when both WAYLAND_DISPLAY and DISPLAY are present.
+    Under WSLg that path can terminate during GUI startup/teardown, while the XWayland/X11
+    path remains stable. Force X11 only for WSL/WSLg launches and leave ordinary Linux
+    desktops untouched.
+
+    Returns (env, forced_x11).
+    """
+    child = dict(env)
+    is_wsl = bool(child.get("WSL_DISTRO_NAME") or child.get("WSL_INTEROP"))
+    has_x11 = bool(child.get("DISPLAY"))
+    has_wayland = bool(child.get("WAYLAND_DISPLAY"))
+
+    if sys.platform == "linux" and is_wsl and has_x11 and has_wayland:
+        child["WAYLAND_DISPLAY"] = ""
+        return child, True
+
+    return child, False
+
+
 # Pinned to the 4.2 LTS line the model trained against. The official Linux tarball is relocatable
 # (extract anywhere, run in place — no root), so a plugin-install user with no Blender can get the
 # exact trained version auto-provisioned. Auto-download is Linux-x86_64 only; elsewhere fall back to
@@ -199,7 +221,15 @@ def launch_app(argv: list[str]) -> int:
 
     env = {**os.environ, "BLENDER_PORT": str(args.port), "BLENDER_MCP_ADDON_PATH": str(addon)}
     cmd = [binary, "--python", str(startup)]
-    if not args.gui:
+    if args.gui:
+        env, forced_x11 = _prepare_gui_env(env)
+        if forced_x11:
+            print(
+                "WSLg detected with Wayland + X11 available — forcing Blender GUI through X11 "
+                "(WAYLAND_DISPLAY cleared for the child process).",
+                file=sys.stderr,
+            )
+    else:
         try:
             cmd = applaunch.wrap_xvfb(cmd)
         except FileNotFoundError as e:
