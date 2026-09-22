@@ -145,3 +145,34 @@ def test_registry_normalizes_blender_style_text_error(monkeypatch):
         bridge("get_scene_info", {})
 
     assert "Error getting scene info: offline" in str(exc.value)
+
+
+def test_mhs_registry_exposes_read_and_write_surface():
+    bridge = QwenRegistryInvoker("mhs")
+    names = set(bridge.tool_names())
+
+    assert bridge.version == "1.1.0"
+    assert {"mhs_discover", "mhs_read", "mhs_write", "mhs_health_check"}.issubset(names)
+
+
+def test_blender_registry_exposes_read_and_execution_surface():
+    bridge = QwenRegistryInvoker("blender")
+    names = set(bridge.tool_names())
+
+    assert bridge.version == "1.1.0"
+    assert {"get_scene_info", "get_object_info", "get_viewport_screenshot", "execute_blender_code"}.issubset(names)
+
+
+def test_readonly_factory_can_compose_all_three_qwen_capabilities():
+    runtime = build_readonly_qwen_runtime(
+        CONTRACT,
+        core=True,
+        blender=True,
+        mhs=True,
+    )
+
+    assert set(runtime.adapters) == {
+        "orbi.media.v1",
+        "orbi.scene3d.v1",
+        "orbi.hardware.v1",
+    }
