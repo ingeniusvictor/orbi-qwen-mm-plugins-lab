@@ -11,6 +11,7 @@ from orbi_compat.adapters import (
     QwenMHSReadOnlyAdapter,
 )
 
+from .blender_governed import QwenBlenderGovernedAdapter
 from .registry import QwenRegistryInvoker
 
 
@@ -37,4 +38,17 @@ def build_readonly_qwen_runtime(
     return OrbiRuntime(
         PolicyEngine.from_file(contract_path),
         adapters,
+    )
+
+
+def build_governed_blender_runtime(contract_path: str | Path) -> OrbiRuntime:
+    """Build an ORBI runtime that enables only approved QB-10 Blender recipes.
+
+    The public operation remains `orbi.scene3d.v1/execute_recipe`; arbitrary Python is never
+    accepted from the caller. MHS is not included and remains read-only in its separate factory.
+    """
+    return OrbiRuntime(
+        PolicyEngine.from_file(contract_path),
+        [QwenBlenderGovernedAdapter(QwenRegistryInvoker("blender"))],
+        sandboxed_execution_enabled=True,
     )
