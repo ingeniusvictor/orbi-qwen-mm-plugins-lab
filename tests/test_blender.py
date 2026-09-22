@@ -273,3 +273,36 @@ def test_launch_detects_missing_shared_libraries(monkeypatch):
 
     monkeypatch.setattr("subprocess.run", run)
     assert _launch._missing_shared_libraries("/tmp/blender") == ["libSM.so.6"]
+
+
+def test_prepare_gui_env_forces_x11_on_wslg(monkeypatch):
+    from qwen_mm_plugins_blender import _launch
+
+    monkeypatch.setattr(_launch.sys, "platform", "linux")
+    env = {
+        "DISPLAY": ":0",
+        "WAYLAND_DISPLAY": "wayland-0",
+        "WSL_DISTRO_NAME": "Ubuntu",
+    }
+
+    child, forced = _launch._prepare_gui_env(env)
+
+    assert forced is True
+    assert child["DISPLAY"] == ":0"
+    assert child["WAYLAND_DISPLAY"] == ""
+    assert env["WAYLAND_DISPLAY"] == "wayland-0"
+
+
+def test_prepare_gui_env_preserves_non_wsl_linux(monkeypatch):
+    from qwen_mm_plugins_blender import _launch
+
+    monkeypatch.setattr(_launch.sys, "platform", "linux")
+    env = {
+        "DISPLAY": ":1",
+        "WAYLAND_DISPLAY": "wayland-1",
+    }
+
+    child, forced = _launch._prepare_gui_env(env)
+
+    assert forced is False
+    assert child == env
