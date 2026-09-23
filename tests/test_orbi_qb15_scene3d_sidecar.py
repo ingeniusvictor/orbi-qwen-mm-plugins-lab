@@ -47,13 +47,16 @@ class FakeResponse:
 
 
 class FakeRuntime:
-    def __init__(self, *, response_ok=True, exc=None):
+    def __init__(self, *, response_ok=True, exc=None, noisy=False):
         self.requests = []
         self.response_ok = response_ok
         self.exc = exc
+        self.noisy = noisy
 
     def execute(self, request):
         self.requests.append(request)
+        if self.noisy:
+            print("NOISY_PROVIDER_DIAGNOSTIC")
         if self.exc is not None:
             raise self.exc
         return FakeResponse(request, ok=self.response_ok)
@@ -370,3 +373,15 @@ def test_stdio_drains_oversized_line_and_processes_next_message(tmp_path):
     assert lines[0]["error"]["code"] == "SIDECAR_MESSAGE_TOO_LARGE"
     assert lines[1]["ok"] is True
     assert lines[1]["id"] == "after-large"
+
+
+def test_provider_stdout_is_redirected_away_from_jsonl_stream(tmp_path, capsys):
+    runtime = FakeRuntime(noisy=True)
+    sc, _, _, _ = sidecar(tmp_path, runtime=runtime)
+
+    response = sc.process(msg("scene_info", request_id="noisy-read"))
+    captured = capsys.readouterr()
+
+    assert response["ok"] is True
+    assert "NOISY_PROVIDER_DIAGNOSTIC" not in captured.out
+    assert "NOISY_PROVIDER_DIAGNOSTIC" in captured.err
