@@ -252,7 +252,11 @@ def validate_recovery_handoff(
     if payload["authority"] != _AUTHORITY:
         raise RecoveryHandoffError("recovery handoff authority claims are invalid")
 
-    if not isinstance(file_sha256, str) or len(file_sha256) != 64:
+    if (
+        not isinstance(file_sha256, str)
+        or len(file_sha256) != 64
+        or any(ch not in "0123456789abcdef" for ch in file_sha256)
+    ):
         raise RecoveryHandoffError("file SHA-256 is invalid")
 
     return RecoveryHandoff(
