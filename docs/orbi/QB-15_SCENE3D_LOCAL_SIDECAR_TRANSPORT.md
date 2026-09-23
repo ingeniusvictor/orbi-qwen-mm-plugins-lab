@@ -394,3 +394,11 @@ That phase may finally create a feature branch in ORBI Creative Studio, but only
 - initial pilot limited to certified recipes.
 
 **QB-15 status: IMPLEMENTATION CANDIDATE — awaiting dependency + local validation.**
+
+
+## Validation PR
+
+The stacked draft PR for QB-12 through QB-15 targets `integration/orbi-lab` only to exercise
+offline CI across the complete pending stack.
+
+It is **DO NOT MERGE** until the phase-specific local/live certification gates are satisfied.
