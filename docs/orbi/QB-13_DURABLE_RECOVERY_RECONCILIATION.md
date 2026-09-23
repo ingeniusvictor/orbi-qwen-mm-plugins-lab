@@ -82,7 +82,13 @@ If two operators/processes concurrently attempt final reconciliation of the same
 
 New suite: `tests/test_orbi_qb13_reconciliation.py`
 
-QB-13 adds 10 tests covering additive schema, deterministic evidence hashing, invalid inputs, inconclusive evidence, later final resolution, permanent original-id reservation, persistence across restart, final immutability, missing-pending rejection, and concurrent final reconciliation.
+QB-13 adds 10 reconciliation tests covering additive schema, deterministic evidence hashing, invalid inputs, inconclusive evidence, later final resolution, permanent original-id reservation, persistence across restart, final immutability, missing-pending rejection, and concurrent final reconciliation.
+
+QB-13 also adds an evidence-only operator utility:
+
+- `scripts/orbi/qb13_recovery_tool.py`
+
+The tool exposes only `pending`, `reconciliations`, and `reconcile`. It deliberately exposes no retry, release, execute, Blender, or provider command. Six dedicated tests verify its command surface, inline/file evidence handling, filtered history, and structured failure behavior.
 
 Full regression target:
 
@@ -91,8 +97,9 @@ Full regression target:
     QB-10: 13
     QB-11: 12
     QB-12: 10
-    QB-13: 10
-    TOTAL: 72 passed
+    QB-13 reconciliation: 10
+    QB-13 recovery tool:   6
+    TOTAL: 78 passed
 
 ## Live Blender recovery smoke
 
@@ -127,6 +134,7 @@ Recommended scope: minimal consumer-facing `orbi.scene3d.v1` client, no Qwen imp
       tests/test_orbi_qb11_audit_replay.py \
       tests/test_orbi_qb12_durable_ledger.py \
       tests/test_orbi_qb13_reconciliation.py \
+      tests/test_orbi_qb13_recovery_tool.py \
       -q
 
     python scripts/orbi/qb13_live_reconciliation.py
@@ -137,6 +145,6 @@ Then:
     git branch --show-current
     git rev-parse HEAD
 
-QB-13 becomes certifiable only after QB-12 dependency is certified, 72/72 full regression tests pass, the live recovery/reconciliation smoke passes, and the working tree is clean.
+QB-13 becomes certifiable only after QB-12 dependency is certified, 78/78 full regression tests pass, the live recovery/reconciliation smoke passes, and the working tree is clean.
 
 **QB-13 status: IMPLEMENTATION CANDIDATE — awaiting dependency + local validation.**
