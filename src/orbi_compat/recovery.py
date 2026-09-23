@@ -52,6 +52,7 @@ class ReconciliationRecord:
     actor: str
     evidence: dict[str, Any]
     evidence_sha256: str
+    final: bool
     reservation_released: bool
     retry_semantics: str
 
