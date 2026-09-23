@@ -20,6 +20,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from orbi_compat import SQLiteReplayLedger
+from orbi_compat.errors import OrbiCompatError
 
 
 def _json(value) -> None:
@@ -79,25 +80,37 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    ledger = SQLiteReplayLedger(args.db)
 
-    if args.command == "pending":
-        _json([item.to_dict() for item in ledger.pending_receipts()])
+    try:
+        ledger = SQLiteReplayLedger(args.db)
+
+        if args.command == "pending":
+            _json([item.to_dict() for item in ledger.pending_receipts()])
+            return 0
+
+        if args.command == "reconciliations":
+            _json([item.to_dict() for item in ledger.reconciliations(args.request_id)])
+            return 0
+
+        evidence = _read_evidence(args)
+        record = ledger.reconcile_pending(
+            args.request_id,
+            resolution=args.resolution,
+            evidence=evidence,
+            actor=args.actor,
+        )
+        _json(record.to_dict())
         return 0
-
-    if args.command == "reconciliations":
-        _json([item.to_dict() for item in ledger.reconciliations(args.request_id)])
-        return 0
-
-    evidence = _read_evidence(args)
-    record = ledger.reconcile_pending(
-        args.request_id,
-        resolution=args.resolution,
-        evidence=evidence,
-        actor=args.actor,
-    )
-    _json(record.to_dict())
-    return 0
+    except (OrbiCompatError, ValueError, TypeError, OSError, json.JSONDecodeError) as exc:
+        error = {
+            "ok": False,
+            "error": {
+                "code": getattr(exc, "code", exc.__class__.__name__.upper()),
+                "message": str(exc),
+            },
+        }
+        print(json.dumps(error, sort_keys=True, ensure_ascii=False), file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
