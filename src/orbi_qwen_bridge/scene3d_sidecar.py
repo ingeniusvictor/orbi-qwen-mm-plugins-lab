@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import sys
+from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any, Callable
 
@@ -102,7 +104,10 @@ class Scene3DPilotSidecar:
 
     def _runtime_instance(self):
         if self._runtime is None:
-            self._runtime = self._runtime_factory()
+            # stdout is reserved exclusively for JSONL protocol frames.
+            # Any provider/runtime diagnostic print is redirected to stderr.
+            with redirect_stdout(sys.stderr):
+                self._runtime = self._runtime_factory()
         return self._runtime
 
     @staticmethod
@@ -245,7 +250,9 @@ class Scene3DPilotSidecar:
             else:
                 raise SidecarProtocolError(f"operation not implemented: {operation}")
 
-            response = runtime.execute(request)
+            # stdout is reserved exclusively for JSONL protocol frames.
+            with redirect_stdout(sys.stderr):
+                response = runtime.execute(request)
             return {
                 **base,
                 "ok": True,
