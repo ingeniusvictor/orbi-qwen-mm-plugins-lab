@@ -1,0 +1,72 @@
+{
+  "schema": "orbi.qwen-upstream-drift-audit/v1",
+  "audit_date": "2026-09-24",
+  "upstream_repository": "QwenLM/Qwen-MM-Plugins",
+  "frozen_baseline": "7f7ca380f2a21c3bea7239c132213e14c1c9abaf",
+  "observed_upstream_main": "07736672525443c7f8a3f6405eed37d2236f023f",
+  "relation": {
+    "status": "ahead",
+    "ahead_by": 7,
+    "behind_by": 0
+  },
+  "changed_runtime_files": [
+    "src/shared/api_openai.py"
+  ],
+  "changed_noncritical_or_support_files": [
+    "README.md",
+    "README.zh.md",
+    "docs/assets/hub-badge.svg",
+    "docs/assets/slack-badge.svg",
+    "docs/assets/wechat-badge.svg",
+    "docs/en/configuration.md",
+    "docs/en/installation.md",
+    "docs/en/local_development.md",
+    "docs/zh/installation.md",
+    "docs/zh/local_development.md",
+    "install.sh",
+    "tests/test_api_clients.py",
+    "tests/test_install_sh.py",
+    "tests/test_omni_skill_creator_config.py"
+  ],
+  "certified_path_impact": {
+    "core_direct_change": false,
+    "blender_direct_change": false,
+    "mhs_direct_change": false,
+    "video_spatio_direct_change": false,
+    "orbi_compat_direct_change": false,
+    "orbi_qwen_bridge_direct_change": false,
+    "scene3d_sidecar_direct_change": false
+  },
+  "notable_changes": [
+    {
+      "commit": "cc6a356e2f02e5637e2b13e383b797cc87d53cae",
+      "summary": "DASHSCOPE_BASE_URL may pair with DASHSCOPE_API_KEY for same-origin compatible endpoints",
+      "relevance": "future cloud/provider routing",
+      "current_local_scene3d_relevance": "none"
+    },
+    {
+      "commit": "ead99d7eb263a1e72d4d197e31258f4c5f0b328e",
+      "summary": "non-interactive installer/config-set support",
+      "relevance": "developer/operator installation ergonomics",
+      "current_local_scene3d_relevance": "none"
+    },
+    {
+      "commit": "98d775c0a07f3bba9a690e7028199fb9794cee6b",
+      "summary": "unified installer configuration and headless actions",
+      "relevance": "installer automation",
+      "current_local_scene3d_relevance": "none"
+    }
+  ],
+  "decision": {
+    "action": "KEEP_FROZEN_BASELINE",
+    "rebase_now": false,
+    "cherry_pick_now": false,
+    "rationale": [
+      "QB-12 through QB-15 certification is still pending and should not move under active gates",
+      "no direct upstream changes touch the certified local Scene3D/Blender/MHS/video-spatio path",
+      "the only runtime change is cloud/OpenAI-compatible endpoint credential resolution",
+      "installer improvements can be evaluated after the pending certification stack is sealed"
+    ],
+    "revisit_after": "QB-15 certification"
+  }
+}
