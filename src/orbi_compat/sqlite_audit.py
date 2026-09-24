@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import time
 from pathlib import Path
 
 from .audit import ExecutionReceipt, ExecutionToken, request_fingerprint
@@ -82,29 +83,54 @@ class SQLiteReplayLedger:
         conn = sqlite3.connect(self.path, timeout=10.0)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA busy_timeout=10000")
-        conn.execute("PRAGMA journal_mode=WAL")
+        # journal_mode=WAL is persistent at the database-file level. Do not renegotiate it on
+        # every connection: two fresh ledger instances can otherwise race while both try to change
+        # the journal mode before the busy handler can serialize normal writes.
         conn.execute("PRAGMA synchronous=FULL")
         return conn
 
+    @staticmethod
+    def _is_locked_error(exc: sqlite3.OperationalError) -> bool:
+        return "locked" in str(exc).lower()
+
     def _initialize(self) -> None:
-        with self._connect() as conn:
-            conn.executescript(_SCHEMA)
-            conn.execute(
-                "INSERT OR IGNORE INTO orbi_schema(key, value) VALUES('schema_version', ?)",
-                (self.schema_version,),
-            )
-            conn.execute(
-                "INSERT OR IGNORE INTO orbi_schema(key, value) "
-                "VALUES('reconciliation_schema_version', '1')"
-            )
-            row = conn.execute(
-                "SELECT value FROM orbi_schema WHERE key='schema_version'"
-            ).fetchone()
-            if row is None or row["value"] != self.schema_version:
-                raise RuntimeError(
-                    f"unsupported ORBI execution ledger schema: "
-                    f"{None if row is None else row['value']!r}"
-                )
+        # Fresh processes/threads may construct the same ledger concurrently. WAL activation and
+        # first-time schema creation are database-level operations, so retry only the transient
+        # SQLITE_BUSY/locked case with a short bounded backoff. All other operational errors remain
+        # fail-fast.
+        attempts = 20
+        for attempt in range(attempts):
+            try:
+                with self._connect() as conn:
+                    mode = conn.execute("PRAGMA journal_mode=WAL").fetchone()
+                    if mode is None or str(mode[0]).lower() != "wal":
+                        raise RuntimeError(
+                            f"ORBI execution ledger failed to enter WAL mode: "
+                            f"{None if mode is None else mode[0]!r}"
+                        )
+
+                    conn.executescript(_SCHEMA)
+                    conn.execute(
+                        "INSERT OR IGNORE INTO orbi_schema(key, value) VALUES('schema_version', ?)",
+                        (self.schema_version,),
+                    )
+                    conn.execute(
+                        "INSERT OR IGNORE INTO orbi_schema(key, value) "
+                        "VALUES('reconciliation_schema_version', '1')"
+                    )
+                    row = conn.execute(
+                        "SELECT value FROM orbi_schema WHERE key='schema_version'"
+                    ).fetchone()
+                    if row is None or row["value"] != self.schema_version:
+                        raise RuntimeError(
+                            f"unsupported ORBI execution ledger schema: "
+                            f"{None if row is None else row['value']!r}"
+                        )
+                return
+            except sqlite3.OperationalError as exc:
+                if not self._is_locked_error(exc) or attempt == attempts - 1:
+                    raise
+                time.sleep(0.01 * (attempt + 1))
 
     def begin(self, request: OrbiRequest, risk_class: str, *, dry_run: bool) -> ExecutionToken:
         fingerprint = request_fingerprint(request)
