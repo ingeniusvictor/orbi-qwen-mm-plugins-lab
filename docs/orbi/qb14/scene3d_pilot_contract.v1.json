@@ -1,0 +1,177 @@
+{
+  "contract_version": "orbi.scene3d-pilot/v1",
+  "phase": "QB-14",
+  "status": "design-candidate",
+  "dependencies": {
+    "qb12": {
+      "required_status": "certified"
+    },
+    "qb13": {
+      "required_status": "certified"
+    }
+  },
+  "consumer": {
+    "repository": "ingeniusvictor/orbi-creative-studio",
+    "branch": "integration/orbi-foundation",
+    "frozen_commit": "b0c63b33f51e7d81322b47eb3312b6e76a266c68",
+    "runtime": "electron-main-preload-renderer",
+    "observed_security": {
+      "context_isolation": true,
+      "node_integration": false,
+      "trusted_sender_guard": "assertTrustedSender",
+      "existing_bridge_pattern": [
+        "orbiComputeRouter",
+        "orbiBenchmark"
+      ]
+    }
+  },
+  "feature_gate": {
+    "name": "ORBI_SCENE3D_PILOT_ENABLED",
+    "default": false,
+    "owner": "electron-main",
+    "renderer_may_enable": false,
+    "production_default": false
+  },
+  "dependency_rule": {
+    "product_direct_qwen_imports": false,
+    "renderer_direct_provider_access": false,
+    "renderer_direct_filesystem_access": false,
+    "renderer_direct_sqlite_access": false,
+    "renderer_direct_python_access": false,
+    "provider_specific_names_in_renderer_api": false
+  },
+  "renderer_api": {
+    "global": "orbiScene3D",
+    "methods": [
+      {
+        "name": "getStatus",
+        "risk": "R0_READ_LOCAL"
+      },
+      {
+        "name": "sceneInfo",
+        "risk": "R0_READ_LOCAL"
+      },
+      {
+        "name": "objectInfo",
+        "risk": "R0_READ_LOCAL"
+      },
+      {
+        "name": "dryRunRecipe",
+        "risk": "R2_EXECUTE_SANDBOXED",
+        "provider_call": false
+      },
+      {
+        "name": "executeRecipe",
+        "risk": "R2_EXECUTE_SANDBOXED",
+        "provider_call": true
+      },
+      {
+        "name": "pendingRecoveries",
+        "risk": "R0_READ_LOCAL"
+      },
+      {
+        "name": "reconciliationHistory",
+        "risk": "R0_READ_LOCAL"
+      }
+    ],
+    "forbidden_methods": [
+      "executePython",
+      "executeBlenderCode",
+      "retryExecution",
+      "releaseReservation",
+      "setLedgerPath",
+      "setProvider",
+      "reconcilePending"
+    ]
+  },
+  "main_process": {
+    "owns": [
+      "feature_flag",
+      "request_id_generation",
+      "transport_configuration",
+      "durable_ledger_location",
+      "timeouts",
+      "retry_policy",
+      "recipe_allowlist",
+      "trusted_sender_validation"
+    ],
+    "request_id": {
+      "generated_by": "electron-main",
+      "renderer_supplied": false,
+      "format": "uuid-or-equivalent-opaque-unique-id"
+    },
+    "retries": {
+      "R0_READ_LOCAL": "bounded-allowed",
+      "R2_EXECUTE_SANDBOXED": "never-automatic"
+    }
+  },
+  "ipc_channels": {
+    "status": "orbi-scene3d:status",
+    "scene_info": "orbi-scene3d:scene-info",
+    "object_info": "orbi-scene3d:object-info",
+    "dry_run_recipe": "orbi-scene3d:dry-run-recipe",
+    "execute_recipe": "orbi-scene3d:execute-recipe",
+    "pending_recoveries": "orbi-scene3d:pending-recoveries",
+    "reconciliation_history": "orbi-scene3d:reconciliation-history"
+  },
+  "recipe_policy": {
+    "initial_allowlist": [
+      "orbi.blender.create_cube.v1",
+      "orbi.blender.delete_object.v1"
+    ],
+    "arbitrary_python": false,
+    "network_enabled_recipes": false,
+    "filesystem_enabled_recipes": false,
+    "destructive_recipe_product_confirmation": {
+      "orbi.blender.delete_object.v1": true
+    }
+  },
+  "recovery_policy": {
+    "renderer_can_inspect_pending": true,
+    "renderer_can_inspect_history": true,
+    "renderer_can_reconcile": false,
+    "operator_reconciliation_tool": "scripts/orbi/qb13_recovery_tool.py",
+    "automatic_pending_resolution": false,
+    "original_request_id_released_after_reconciliation": false
+  },
+  "transport": {
+    "public_product_contract": "provider-neutral",
+    "initial_implementation": "deferred-to-pilot-implementation-gate",
+    "requirements": [
+      "local-only",
+      "main-process-owned",
+      "no-listening-public-interface",
+      "bounded-message-size",
+      "normalized-orbi-request-response-envelope",
+      "no-provider-credentials-in-renderer"
+    ]
+  },
+  "response_surface": {
+    "renderer_visible": [
+      "ok",
+      "request_id",
+      "interface",
+      "operation",
+      "data",
+      "policy",
+      "audit",
+      "error"
+    ],
+    "renderer_hidden": [
+      "sqlite_path",
+      "python_path",
+      "provider_raw_exception",
+      "provider_secret",
+      "generated_python_code",
+      "qwen_package_name"
+    ]
+  },
+  "pilot_scope": {
+    "default_off": true,
+    "development_only": true,
+    "first_consumer": "ORBI Creative Studio",
+    "production_cutover_authorized": false,
+    "compute_router_authority_changed": false,
+    "mhs_actuation_enabled": false
+  }
+}
