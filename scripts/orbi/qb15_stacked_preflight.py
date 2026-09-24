@@ -69,7 +69,7 @@ def main() -> int:
         "branch": git_value("branch", "--show-current"),
         "head": git_value("rev-parse", "HEAD"),
         "working_tree_clean": not bool(git_value("status", "--porcelain")),
-        "expected_accumulated_tests": 106,
+        "expected_accumulated_tests": 107,
         "gates": {},
     }
 
