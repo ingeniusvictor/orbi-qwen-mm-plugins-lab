@@ -270,7 +270,11 @@ Suite:
 tests/test_orbi_qb15_scene3d_sidecar.py
 ```
 
-QB-15 adds 16 tests covering:
+QB-15 adds 16 sidecar tests. The stacked branch also adds one SQLite concurrency-hardening regression test, bringing the accumulated QB-08→QB-15 count to 107.
+
+The new hardening regression specifically covers concurrent construction of multiple SQLiteReplayLedger instances against the same fresh database file and verifies that WAL initialization cannot fail with a transient database lock.
+
+The 16 QB-15 sidecar tests cover:
 
 - exact operation surface,
 - absence of privileged commands,
@@ -374,7 +378,7 @@ python -m pytest \
 Expected accumulated count:
 
 ```text
-106 passed
+107 passed
 ```
 
 ## Proposed next phase
@@ -424,3 +428,29 @@ The live mode additionally runs the QB-12, QB-13, and QB-15 live Blender/sidecar
 
 Important: a stacked preflight PASS does **not** replace phase-specific certification at the frozen
 QB-12/QB-13 SHAs. It is a regression/pre-pilot convenience gate only.
+
+
+## Post-QB-14 SQLite initialization hardening
+
+During the first QB-15 stacked preflight, the accumulated suite exposed a real startup race inherited
+from the earlier durable-ledger implementation:
+
+```text
+sqlite3.OperationalError: database is locked
+```
+
+The race occurred before request reservation logic: concurrent fresh ledger instances both executed
+`PRAGMA journal_mode=WAL` while opening the same new SQLite database.
+
+QB-15 hardens this by:
+
+- keeping `busy_timeout=10000` on every connection,
+- keeping `synchronous=FULL` on every connection,
+- treating WAL mode as persistent file-level configuration,
+- performing WAL negotiation only during initialization,
+- retrying only transient SQLite `locked` initialization failures with bounded backoff,
+- failing fast for all other operational errors,
+- adding an 8-thread fresh-ledger initialization regression.
+
+This hardening does not weaken replay semantics or reservation atomicity. The original
+`BEGIN IMMEDIATE` reservation path remains unchanged.
