@@ -402,3 +402,25 @@ The stacked draft PR for QB-12 through QB-15 targets `integration/orbi-lab` only
 offline CI across the complete pending stack.
 
 It is **DO NOT MERGE** until the phase-specific local/live certification gates are satisfied.
+
+
+## Stacked preflight helper
+
+Convenience command:
+
+```bash
+python scripts/orbi/qb15_stacked_preflight.py
+```
+
+This runs the accumulated QB-08→QB-15 offline regression plus the QB-14 contract validator.
+
+Optional controlled live stack:
+
+```bash
+python scripts/orbi/qb15_stacked_preflight.py --live
+```
+
+The live mode additionally runs the QB-12, QB-13, and QB-15 live Blender/sidecar gates.
+
+Important: a stacked preflight PASS does **not** replace phase-specific certification at the frozen
+QB-12/QB-13 SHAs. It is a regression/pre-pilot convenience gate only.
