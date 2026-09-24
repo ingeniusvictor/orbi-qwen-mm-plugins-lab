@@ -7,7 +7,13 @@ from pathlib import Path
 
 from .audit import ExecutionReceipt, ExecutionToken, request_fingerprint
 from .contracts import OrbiRequest, ProviderInfo
-from .errors import ReplayDenied, RequestIdConflict
+from .errors import (
+    AlreadyReconciled,
+    PendingExecutionNotFound,
+    ReplayDenied,
+    RequestIdConflict,
+)
+from .recovery import ReconciliationRecord, normalize_reconciliation_input
 
 
 _SCHEMA = """
@@ -39,6 +45,20 @@ CREATE TABLE IF NOT EXISTS execution_audit (
     replay_reserved INTEGER NOT NULL,
     retry_semantics TEXT NOT NULL,
     error_code TEXT
+);
+
+CREATE TABLE IF NOT EXISTS execution_reconciliation (
+    reconciliation_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    execution_sequence INTEGER NOT NULL,
+    request_id TEXT NOT NULL,
+    request_fingerprint TEXT NOT NULL,
+    resolution TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    evidence_json TEXT NOT NULL,
+    evidence_sha256 TEXT NOT NULL,
+    final INTEGER NOT NULL,
+    reservation_released INTEGER NOT NULL,
+    retry_semantics TEXT NOT NULL
 );
 """
 
@@ -72,6 +92,10 @@ class SQLiteReplayLedger:
             conn.execute(
                 "INSERT OR IGNORE INTO orbi_schema(key, value) VALUES('schema_version', ?)",
                 (self.schema_version,),
+            )
+            conn.execute(
+                "INSERT OR IGNORE INTO orbi_schema(key, value) "
+                "VALUES('reconciliation_schema_version', '1')"
             )
             row = conn.execute(
                 "SELECT value FROM orbi_schema WHERE key='schema_version'"
@@ -262,6 +286,183 @@ class SQLiteReplayLedger:
             retry_semantics="new-request-id-required",
             error_code=error_code,
         )
+
+    def reconcile_pending(
+        self,
+        request_id: str,
+        *,
+        resolution: str,
+        evidence: dict,
+        actor: str,
+    ) -> ReconciliationRecord:
+        """Record evidence for an uncertain durable R2 execution.
+
+        `inconclusive` records evidence but intentionally leaves the execution pending so a later
+        read-back may resolve it. `applied` and `not_applied` are final for that execution row.
+
+        The original request-id reservation is NEVER released. A later execution always requires a
+        new request id, even when reconciliation concludes that the effect was not applied.
+        """
+        resolution, actor, evidence_json, evidence_sha256 = normalize_reconciliation_input(
+            resolution=resolution,
+            evidence=evidence,
+            actor=actor,
+        )
+        final = resolution in {"applied", "not_applied"}
+        retry_semantics = "original-request-id-remains-reserved;new-request-id-required"
+
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                """
+                SELECT sequence, request_id, request_fingerprint
+                FROM execution_audit
+                WHERE request_id = ?
+                  AND replay_reserved = 1
+                  AND outcome = 'pending'
+                ORDER BY sequence DESC
+                LIMIT 1
+                """,
+                (request_id,),
+            ).fetchone()
+
+            if row is None:
+                existing = conn.execute(
+                    """
+                    SELECT 1
+                    FROM execution_reconciliation
+                    WHERE request_id = ? AND final = 1
+                    LIMIT 1
+                    """,
+                    (request_id,),
+                ).fetchone()
+                conn.rollback()
+                if existing is not None:
+                    raise AlreadyReconciled(
+                        f"request_id {request_id!r} already has a final reconciliation"
+                    )
+                raise PendingExecutionNotFound(
+                    f"request_id {request_id!r} has no pending durable R2 execution"
+                )
+
+            cursor = conn.execute(
+                """
+                INSERT INTO execution_reconciliation(
+                    execution_sequence,
+                    request_id,
+                    request_fingerprint,
+                    resolution,
+                    actor,
+                    evidence_json,
+                    evidence_sha256,
+                    final,
+                    reservation_released,
+                    retry_semantics
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+                """,
+                (
+                    int(row["sequence"]),
+                    row["request_id"],
+                    row["request_fingerprint"],
+                    resolution,
+                    actor,
+                    evidence_json,
+                    evidence_sha256,
+                    1 if final else 0,
+                    retry_semantics,
+                ),
+            )
+            reconciliation_sequence = int(cursor.lastrowid)
+
+            if final:
+                update = conn.execute(
+                    """
+                    UPDATE execution_audit
+                    SET outcome = ?,
+                        retry_semantics = ?
+                    WHERE sequence = ?
+                      AND outcome = 'pending'
+                    """,
+                    (
+                        f"reconciled-{resolution.replace('_', '-')}",
+                        retry_semantics,
+                        int(row["sequence"]),
+                    ),
+                )
+                if update.rowcount != 1:
+                    raise RuntimeError(
+                        f"pending execution row {int(row['sequence'])} changed during reconciliation"
+                    )
+
+            conn.commit()
+        finally:
+            conn.close()
+
+        import json
+
+        return ReconciliationRecord(
+            schema="orbi.execution-reconciliation/v1",
+            reconciliation_sequence=reconciliation_sequence,
+            execution_sequence=int(row["sequence"]),
+            request_id=row["request_id"],
+            request_fingerprint=row["request_fingerprint"],
+            resolution=resolution,
+            actor=actor,
+            evidence=json.loads(evidence_json),
+            evidence_sha256=evidence_sha256,
+            final=final,
+            reservation_released=False,
+            retry_semantics=retry_semantics,
+        )
+
+    def reconciliations(self, request_id: str | None = None) -> tuple[ReconciliationRecord, ...]:
+        import json
+
+        with self._connect() as conn:
+            if request_id is None:
+                rows = conn.execute(
+                    """
+                    SELECT *
+                    FROM execution_reconciliation
+                    ORDER BY reconciliation_sequence
+                    """
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT *
+                    FROM execution_reconciliation
+                    WHERE request_id = ?
+                    ORDER BY reconciliation_sequence
+                    """,
+                    (request_id,),
+                ).fetchall()
+
+        return tuple(
+            ReconciliationRecord(
+                schema="orbi.execution-reconciliation/v1",
+                reconciliation_sequence=int(row["reconciliation_sequence"]),
+                execution_sequence=int(row["execution_sequence"]),
+                request_id=row["request_id"],
+                request_fingerprint=row["request_fingerprint"],
+                resolution=row["resolution"],
+                actor=row["actor"],
+                evidence=json.loads(row["evidence_json"]),
+                evidence_sha256=row["evidence_sha256"],
+                final=bool(row["final"]),
+                reservation_released=bool(row["reservation_released"]),
+                retry_semantics=row["retry_semantics"],
+            )
+            for row in rows
+        )
+
+    def reconciliation_schema(self) -> str:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT value FROM orbi_schema WHERE key='reconciliation_schema_version'"
+            ).fetchone()
+        return row["value"]
 
     def receipts(self) -> tuple[ExecutionReceipt, ...]:
         with self._connect() as conn:

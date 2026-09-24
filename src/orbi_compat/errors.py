@@ -28,6 +28,18 @@ class ProviderFailure(OrbiCompatError):
     code = "PROVIDER_FAILURE"
 
 
+class ReconciliationError(OrbiCompatError):
+    code = "RECONCILIATION_ERROR"
+
+
+class PendingExecutionNotFound(ReconciliationError):
+    code = "PENDING_EXECUTION_NOT_FOUND"
+
+
+class AlreadyReconciled(ReconciliationError):
+    code = "ALREADY_RECONCILED"
+
+
 class ProviderUnavailable(ProviderFailure):
     code = "PROVIDER_UNAVAILABLE"
     retryable = True
