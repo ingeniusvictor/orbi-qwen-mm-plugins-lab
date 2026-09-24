@@ -215,6 +215,35 @@ def test_timeout_unknown_outcome_blocks_retry_after_restart(tmp_path):
     assert invoker2.calls == []
 
 
+def test_concurrent_ledger_initialization_is_lock_safe(tmp_path):
+    db = tmp_path / "audit.sqlite3"
+    barrier = threading.Barrier(8)
+    results = []
+    errors = []
+    lock = threading.Lock()
+
+    def worker():
+        barrier.wait()
+        try:
+            ledger = SQLiteReplayLedger(db)
+            result = (ledger.schema(), ledger.is_reserved("missing"))
+            with lock:
+                results.append(result)
+        except Exception as exc:  # surfaced explicitly instead of becoming a thread warning
+            with lock:
+                errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert not errors
+    assert len(results) == 8
+    assert results == [("1", False)] * 8
+
+
 def test_concurrent_reservation_allows_only_one_owner(tmp_path):
     db = tmp_path / "audit.sqlite3"
     req = create_request("race-id")
